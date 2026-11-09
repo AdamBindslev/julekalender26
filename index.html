@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Edutasia julekalender 2026</title>
+  <meta name="description" content="Edutasia e-læringsjulekalender 2026 – Lær noget nyt hver dag frem til jul med daglige videolektioner.">
+  
+  <!-- Favicon & Stylesheet -->
+  <link rel="icon" type="image/png" href="edutasia logo.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Diskret baggrunds-snefald -->
+  <canvas id="snow-canvas" aria-hidden="true"></canvas>
+
+  <div class="site-wrapper">
+    <!-- Header -->
+    <header class="site-header">
+      <div class="header-inner">
+        <a href="https://edutasia.dk/" target="_blank" rel="noopener noreferrer" class="brand-logo-link" title="Besøg Edutasia">
+          <img src="edutasia logo.png" alt="Edutasia Logo" class="brand-logo">
+        </a>
+        
+        <div class="header-meta">
+          <div id="test-mode-badge" class="test-mode-badge" title="Test-tilstand er aktiv. Alle 24 låger kan åbnes.">
+            <span>⚙️</span>
+            <span>Test-tilstand aktiv</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Hovedindhold -->
+    <main class="main-content">
+      <section class="calendar-hero">
+        <div class="calendar-hero-badge">
+          <span>🎄</span>
+          <span>E-læringskalender</span>
+        </div>
+        <h1 class="calendar-title" id="page-title">Edutasia julekalender 2026</h1>
+        <p class="calendar-subtitle" id="page-subtitle">Åbn dagens låge og få et nyt e-læringsboost hver dag frem til jul</p>
+        
+        <div class="calendar-status-bar" id="calendar-status-bar">
+          <span class="status-dot"></span>
+          <span id="status-date-text">Indlæser kalender...</span>
+          <span>•</span>
+          <span id="status-watched-count">0 af 24 låger set</span>
+        </div>
+      </section>
+
+      <!-- 24 Låger Gitter -->
+      <section class="calendar-grid-section" aria-label="Julekalender låger">
+        <div class="calendar-grid" id="calendar-grid">
+          <!-- Genereres dynamisk via JavaScript -->
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+      <p>&copy; 2026 <a href="https://edutasia.dk/" target="_blank" rel="noopener noreferrer">Edutasia</a> – Kompetenceudvikling &amp; E-læring</p>
+    </footer>
+  </div>
+
+  <!-- Modal / Lightbox (Video Player) -->
+  <div id="video-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-hidden="true" tabindex="-1">
+    <div class="modal-container">
+      <header class="modal-header">
+        <div class="modal-header-left">
+          <span class="modal-day-pill" id="modal-day-pill">Låge 1</span>
+          <h2 class="modal-title" id="modal-title">Dagens e-læringsvideo</h2>
+        </div>
+        <button type="button" class="modal-close-btn" id="modal-close-btn" aria-label="Luk video (Esc)" title="Luk video">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </header>
+
+      <div class="modal-body">
+        <div class="video-responsive-wrapper" id="video-wrapper">
+          <!-- Vimeo iframe indsættes dynamisk her for optimal ydeevne -->
+        </div>
+      </div>
+
+      <footer class="modal-footer">
+        <span class="modal-footer-brand">Edutasia e-læring</span>
+        <span id="modal-footer-desc">God fornøjelse med dagens lektion!</span>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Toast (Besked ved klik på låste låger) -->
+  <div id="toast" class="toast-container" role="status" aria-live="polite">
+    <span class="toast-icon">🎅</span>
+    <span class="toast-message" id="toast-message">Denne låge kan først åbnes d. X. december!</span>
+  </div>
+
+  <!-- JavaScript filer -->
+  <script src="doors-config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
