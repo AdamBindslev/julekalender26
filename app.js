@@ -290,9 +290,12 @@
         />
         <span class="video-thumbnail-scrim" aria-hidden="true"></span>
         <span class="video-play-btn" id="video-play-btn" aria-hidden="true">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
-            <polygon points="6 3 20 12 6 21 6 3"></polygon>
-          </svg>
+          <span class="video-play-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="6 3 20 12 6 21 6 3"></polygon>
+            </svg>
+          </span>
+          <span class="video-play-label">Afspil video</span>
         </span>
         <span class="video-loading-indicator" id="video-loading-indicator" aria-hidden="true">
           <span class="video-loading-spinner"></span>
@@ -422,6 +425,9 @@
 
       const card = document.createElement("article");
       card.className = "door-card";
+      if (day === 24) {
+        card.classList.add("is-eve");
+      }
       card.setAttribute("data-day", day);
       card.setAttribute("role", "button");
       card.setAttribute("tabindex", "0");
@@ -626,18 +632,20 @@
     let width = (canvas.width = window.innerWidth);
     let height = (canvas.height = window.innerHeight);
 
-    // Ca. 40 diskrete snefnug
-    const flakeCount = Math.min(Math.floor(width / 30), 45);
+    // Ca. 45 diskrete snefnug blandet med enkelte gyldne gnister
+    const flakeCount = Math.min(Math.floor(width / 26), 52);
     const flakes = [];
 
     for (let i = 0; i < flakeCount; i++) {
+      const isGold = i % 5 === 0;
       flakes.push({
         x: Math.random() * width,
         y: Math.random() * height,
-        r: Math.random() * 2 + 1,
-        d: Math.random() * 1 + 0.5,
-        opacity: Math.random() * 0.45 + 0.15,
-        vx: (Math.random() - 0.5) * 0.4
+        r: isGold ? Math.random() * 1.6 + 0.9 : Math.random() * 2 + 1,
+        d: Math.random() * 1 + 0.45,
+        opacity: isGold ? Math.random() * 0.4 + 0.2 : Math.random() * 0.45 + 0.15,
+        vx: (Math.random() - 0.5) * 0.4,
+        isGold: isGold
       });
     }
 
@@ -645,7 +653,9 @@
       ctx.clearRect(0, 0, width, height);
       for (let i = 0; i < flakes.length; i++) {
         const f = flakes[i];
-        ctx.fillStyle = `rgba(255, 255, 255, ${f.opacity})`;
+        ctx.fillStyle = f.isGold
+          ? `rgba(246, 220, 140, ${f.opacity})`
+          : `rgba(255, 255, 255, ${f.opacity})`;
         ctx.beginPath();
         ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2, true);
         ctx.closePath();
