@@ -477,18 +477,20 @@
         badgeText = isWatched ? "Set ✓" : "Åben";
       }
 
+      const previewTitle = doorData.title
+        ? doorData.title.replace(/^\d+\.\s*december\s*[–-]?\s*/i, "").trim()
+        : "";
+
       card.innerHTML = `
-        <div class="door-card-header">
-          <div class="door-number">
-            <span>${day}</span><span class="dec-dot">.</span>
-          </div>
-          <div class="door-state-icon" aria-hidden="true">
-            ${iconSvg}
-          </div>
+        <div class="door-state-icon" aria-hidden="true">
+          ${iconSvg}
+        </div>
+        <div class="door-number">
+          <span>${day}</span><span class="dec-dot">.</span>
         </div>
         <div class="door-card-footer">
           <span class="door-badge">${badgeText}</span>
-          <span class="door-preview-title">${doorData.title ? doorData.title.replace(/^\d+\.\s*december\s*[–-]?\s*/i, "") : "Se video"}</span>
+          ${previewTitle ? `<span class="door-preview-title">${previewTitle}</span>` : ""}
         </div>
       `;
 
