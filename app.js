@@ -33,6 +33,8 @@
 
   let toastTimeout = null;
   let lastActiveElement = null;
+  let thumbnailTimeout = null;
+  const thumbnailCache = new Map();
 
   // Læs URL parametre (til forhåndstest / preview)
   const urlParams = new URLSearchParams(window.location.search);
@@ -114,38 +116,130 @@
     }
   }
 
-  // Parser Vimeo URL eller ID og returnerer sikker embed URL
+  // Udtræk Vimeo video ID og evt. privacy hash fra forskellige URL-formater
+  function parseVimeoInfo(inputUrl) {
+    if (!inputUrl) return null;
+    const raw = String(inputUrl).trim();
+
+    // Rent video ID (fx "714785167")
+    if (/^\d+$/.test(raw)) {
+      return { videoId: raw, privacyHash: null };
+    }
+
+    // player.vimeo.com/video/123456789?h=abcdef eller /123456789/abcdef
+    const playerMatch = raw.match(/player\.vimeo\.com\/video\/(\d+)(?:\/([a-zA-Z0-9]+))?/);
+    if (playerMatch) {
+      let hash = playerMatch[2] || null;
+      if (!hash) {
+        const hMatch = raw.match(/[?&]h=([a-zA-Z0-9]+)/);
+        if (hMatch) hash = hMatch[1];
+      }
+      return { videoId: playerMatch[1], privacyHash: hash };
+    }
+
+    // vimeo.com/123456789 eller vimeo.com/123456789/abcdef
+    const vimeoMatch = raw.match(/vimeo\.com\/(\d+)(?:\/([a-zA-Z0-9]+))?/);
+    if (vimeoMatch) {
+      let hash = vimeoMatch[2] || null;
+      if (!hash) {
+        const hMatch = raw.match(/[?&]h=([a-zA-Z0-9]+)/);
+        if (hMatch) hash = hMatch[1];
+      }
+      return { videoId: vimeoMatch[1], privacyHash: hash };
+    }
+
+    return null;
+  }
+
+  // Parser Vimeo URL eller ID og returnerer sikker embed URL (med API aktiveret til player events)
   function buildVimeoEmbedUrl(inputUrl) {
     if (!inputUrl) return "";
 
-    // Hvis det allerede er et komplet embed-link
-    if (inputUrl.includes("player.vimeo.com/video/")) {
-      const glue = inputUrl.includes("?") ? "&" : "?";
-      return `${inputUrl}${glue}autoplay=1`;
-    }
-
-    // Regex til at udtrække video ID og evt unlisted privacy hash
-    // fx https://vimeo.com/714785167 eller https://vimeo.com/714785167/9a8b7c6d5e
-    const vimeoRegex = /(?:vimeo\.com\/)(\d+)(?:\/([a-zA-Z0-9]+))?/;
-    const match = String(inputUrl).trim().match(vimeoRegex);
-
-    if (match) {
-      const videoId = match[1];
-      const privacyHash = match[2];
-      let embed = `https://player.vimeo.com/video/${videoId}?autoplay=1&title=0&byline=0&portrait=0&badge=0&autopause=0`;
-      if (privacyHash) {
-        embed += `&h=${privacyHash}`;
+    const info = parseVimeoInfo(inputUrl);
+    if (info) {
+      let embed = `https://player.vimeo.com/video/${info.videoId}?autoplay=1&title=0&byline=0&portrait=0&badge=0&autopause=0&api=1&player_id=edutasia-vimeo-player`;
+      if (info.privacyHash) {
+        embed += `&h=${info.privacyHash}`;
       }
       return embed;
     }
 
-    // Hvis brugeren blot har skrevet et tal (video ID)
-    if (/^\d+$/.test(String(inputUrl).trim())) {
-      return `https://player.vimeo.com/video/${inputUrl.trim()}?autoplay=1&title=0&byline=0&portrait=0`;
+    // Hvis det er et andet embed-link
+    if (inputUrl.includes("player.vimeo.com/video/")) {
+      const glue = inputUrl.includes("?") ? "&" : "?";
+      return `${inputUrl}${glue}autoplay=1&api=1&player_id=edutasia-vimeo-player`;
     }
 
     // Fallback til original input
     return inputUrl;
+  }
+
+  // Hent thumbnail for en låge (via brugerdefineret thumbnailUrl eller Vimeos oEmbed API)
+  function fetchVideoThumbnail(doorData) {
+    if (!doorData) return Promise.resolve(null);
+
+    if (doorData.thumbnailUrl) {
+      return Promise.resolve(doorData.thumbnailUrl);
+    }
+
+    const cacheKey = String(doorData.videoUrl || "").trim();
+    if (!cacheKey) return Promise.resolve(null);
+
+    if (thumbnailCache.has(cacheKey)) {
+      return Promise.resolve(thumbnailCache.get(cacheKey));
+    }
+
+    const info = parseVimeoInfo(cacheKey);
+    let canonicalVimeoUrl = cacheKey;
+    if (info) {
+      canonicalVimeoUrl = info.privacyHash
+        ? `https://vimeo.com/${info.videoId}/${info.privacyHash}`
+        : `https://vimeo.com/${info.videoId}`;
+    }
+
+    const oembedEndpoint = `https://vimeo.com/api/oembed.json?url=${encodeURIComponent(canonicalVimeoUrl)}&width=1280`;
+
+    const requestPromise = fetch(oembedEndpoint)
+      .then((res) => {
+        if (!res.ok) throw new Error("Kunne ikke hente oEmbed metadata");
+        return res.json();
+      })
+      .then((data) => {
+        const thumb = data.thumbnail_url || null;
+        if (thumb) {
+          thumbnailCache.set(cacheKey, thumb);
+          // Præ-indlæs billedet i browserens cache, så det vises øjeblikkeligt ved åbning
+          const preloadImg = new Image();
+          preloadImg.src = thumb;
+        }
+        return thumb;
+      })
+      .catch(() => {
+        // Fallback til vumbnail.com hvis oEmbed fejler
+        if (info) {
+          const fallbackThumb = info.privacyHash
+            ? `https://vumbnail.com/${info.videoId}:${info.privacyHash}.jpg`
+            : `https://vumbnail.com/${info.videoId}.jpg`;
+          thumbnailCache.set(cacheKey, fallbackThumb);
+          return fallbackThumb;
+        }
+        return null;
+      });
+
+    thumbnailCache.set(cacheKey, requestPromise);
+    return requestPromise;
+  }
+
+  // Skjul thumbnail-overlay blødt når videoen er klar
+  function hideVideoThumbnailOverlay() {
+    if (thumbnailTimeout) {
+      clearTimeout(thumbnailTimeout);
+      thumbnailTimeout = null;
+    }
+    const overlay = document.getElementById("video-thumbnail-overlay");
+    if (overlay && !overlay.classList.contains("is-hidden")) {
+      overlay.classList.add("is-hidden");
+    }
   }
 
   // Vis venlig toast besked
@@ -164,23 +258,76 @@
   function openVideoModal(doorData) {
     lastActiveElement = document.activeElement;
     const embedUrl = buildVimeoEmbedUrl(doorData.videoUrl);
+    const modalTitle = doorData.title || `${doorData.day}. december`;
 
     modalDayPillEl.textContent = `Låge ${doorData.day}`;
-    modalTitleEl.textContent = doorData.title || `${doorData.day}. december`;
+    modalTitleEl.textContent = modalTitle;
     modalFooterDescEl.textContent = doorData.description || "God fornøjelse med dagens lektion!";
 
-    // Indsæt Vimeo iframe
+    if (thumbnailTimeout) {
+      clearTimeout(thumbnailTimeout);
+      thumbnailTimeout = null;
+    }
+
+    // Tjek om vi allerede har en cached thumbnail-URL klar synkront
+    const cacheKey = String(doorData.videoUrl || "").trim();
+    const cachedEntry = doorData.thumbnailUrl || thumbnailCache.get(cacheKey);
+    const immediateThumb = typeof cachedEntry === "string" ? cachedEntry : "";
+
+    // Indsæt thumbnail-overlay (vises før afspilleren er klar) + Vimeo iframe med autoplay i baggrunden
     videoWrapperEl.innerHTML = `
+      <div class="video-thumbnail-overlay" id="video-thumbnail-overlay">
+        <img
+          class="video-thumbnail-img ${immediateThumb ? "is-loaded" : ""}"
+          id="video-thumbnail-img"
+          ${immediateThumb ? `src="${immediateThumb}"` : ""}
+          alt=""
+        />
+        <div class="video-loading-indicator">
+          <span class="video-loading-spinner" aria-hidden="true"></span>
+          <span class="video-loading-text">Indlæser video...</span>
+        </div>
+      </div>
       <iframe
+        id="edutasia-vimeo-player"
         src="${embedUrl}"
         width="100%"
         height="100%"
         frameborder="0"
         allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media"
         allowfullscreen
-        title="${doorData.title || `Låge ${doorData.day}`}"
+        title="${modalTitle.replace(/"/g, "&quot;")}"
       ></iframe>
     `;
+
+    const thumbImgEl = document.getElementById("video-thumbnail-img");
+    const iframeEl = document.getElementById("edutasia-vimeo-player");
+
+    // Hvis thumbnail ikke var klar synkront, hent og indsæt den straks når den lander
+    if (!immediateThumb) {
+      fetchVideoThumbnail(doorData).then((thumbUrl) => {
+        if (thumbUrl && thumbImgEl && document.body.contains(thumbImgEl)) {
+          thumbImgEl.onload = () => thumbImgEl.classList.add("is-loaded");
+          thumbImgEl.src = thumbUrl;
+        }
+      });
+    }
+
+    // Fallback: Hvis Vimeo-afspilleren er klar eller autoplay blokeres af browseren,
+    // skjuler vi thumbnail-overlayet kort efter iframe load, så brugeren kan interagere med afspilleren.
+    if (iframeEl) {
+      iframeEl.addEventListener("load", () => {
+        if (thumbnailTimeout) clearTimeout(thumbnailTimeout);
+        thumbnailTimeout = setTimeout(() => {
+          hideVideoThumbnailOverlay();
+        }, 1200);
+      });
+    }
+
+    // Sikkerheds-timeout så overlayet aldrig hænger fast
+    thumbnailTimeout = setTimeout(() => {
+      hideVideoThumbnailOverlay();
+    }, 4500);
 
     modalEl.classList.add("is-open");
     modalEl.setAttribute("aria-hidden", "false");
@@ -203,6 +350,11 @@
 
   // Luk Video Modal
   function closeVideoModal() {
+    if (thumbnailTimeout) {
+      clearTimeout(thumbnailTimeout);
+      thumbnailTimeout = null;
+    }
+
     modalEl.classList.remove("is-open");
     modalEl.setAttribute("aria-hidden", "true");
     document.body.style.overflow = "";
@@ -322,6 +474,16 @@
         }
       };
 
+      // Præ-hent thumbnail for åbne låger ved hover/fokus eller for dagens låge på forhånd
+      if (status.isUnlocked) {
+        if (status.isToday) {
+          fetchVideoThumbnail(doorData);
+        } else {
+          card.addEventListener("mouseenter", () => fetchVideoThumbnail(doorData), { once: true });
+          card.addEventListener("focus", () => fetchVideoThumbnail(doorData), { once: true });
+        }
+      }
+
       card.addEventListener("click", handleClick);
       card.addEventListener("keydown", (e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -380,6 +542,40 @@
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && modalEl && modalEl.classList.contains("is-open")) {
       closeVideoModal();
+    }
+  });
+
+  // Lyt efter Vimeo player events (via postMessage) for at fade thumbnail-overlay ud, så snart videoen er klar
+  window.addEventListener("message", (event) => {
+    if (!event.origin || !event.origin.includes("vimeo.com")) return;
+    if (!modalEl || !modalEl.classList.contains("is-open")) return;
+
+    let data;
+    try {
+      data = typeof event.data === "string" ? JSON.parse(event.data) : event.data;
+    } catch (e) {
+      return;
+    }
+    if (!data || typeof data !== "object") return;
+
+    const iframeEl = document.getElementById("edutasia-vimeo-player");
+
+    if (data.event === "ready" && iframeEl && iframeEl.contentWindow) {
+      // Abonner på afspilnings-events så vi ved præcis hvornår første frame starter
+      ["play", "playing", "loaded", "timeupdate"].forEach((evtName) => {
+        iframeEl.contentWindow.postMessage(
+          JSON.stringify({ method: "addEventListener", value: evtName }),
+          "*"
+        );
+      });
+
+      // Hvis browseren blokerer autoplay med lyd, skal overlayet stadig forsvinde hurtigt efter ready
+      if (thumbnailTimeout) clearTimeout(thumbnailTimeout);
+      thumbnailTimeout = setTimeout(() => {
+        hideVideoThumbnailOverlay();
+      }, 650);
+    } else if (data.event === "play" || data.event === "playing" || data.event === "timeupdate") {
+      hideVideoThumbnailOverlay();
     }
   });
 
