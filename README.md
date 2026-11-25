@@ -6,7 +6,7 @@ Et professionelt og responsivt e-læringsjulekalender-website skræddersyet til 
 - **`index.html`**: Kalenderens hovedside med header, 24 låger og video-modal (Lightbox).
 - **`doors-config.js`**: **Her indsætter du dine 24 Vimeo-adresser** og eventuelle titler/beskrivelser.
 - **`style.css`**: Styling med Edutasias visuelle identitet (petroleumsblå `#2B4C5E`, hvid og elegante guldaccenter), responsivt gitter og animationer.
-- **`app.js`**: Logik til datostyring, Vimeo-embed, automatisk video-thumbnail under indlæsning, "set"-flueben (localStorage) og diskret sneeffekt.
+- **`app.js`**: Logik til datostyring, klikbar video-thumbnail før afspilning (Vimeo-embed), "set"-flueben (localStorage) og diskret sneeffekt.
 - **`edutasia logo.png`**: Edutasias officielle logo.
 
 ---

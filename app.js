@@ -254,7 +254,7 @@
     }, 3200);
   }
 
-  // Åbn Video Modal
+  // Åbn Video Modal (med klikbar thumbnail før afspilning)
   function openVideoModal(doorData) {
     lastActiveElement = document.activeElement;
     const embedUrl = buildVimeoEmbedUrl(doorData.videoUrl);
@@ -274,34 +274,35 @@
     const cachedEntry = doorData.thumbnailUrl || thumbnailCache.get(cacheKey);
     const immediateThumb = typeof cachedEntry === "string" ? cachedEntry : "";
 
-    // Indsæt thumbnail-overlay (vises før afspilleren er klar) + Vimeo iframe med autoplay i baggrunden
+    // Indsæt klikbar thumbnail med play-knap (iframe indsættes først når brugeren klikker)
     videoWrapperEl.innerHTML = `
-      <div class="video-thumbnail-overlay" id="video-thumbnail-overlay">
+      <button
+        type="button"
+        class="video-thumbnail-overlay is-interactive"
+        id="video-thumbnail-overlay"
+        aria-label="Afspil video: ${modalTitle.replace(/"/g, "&quot;")}"
+      >
         <img
           class="video-thumbnail-img ${immediateThumb ? "is-loaded" : ""}"
           id="video-thumbnail-img"
           ${immediateThumb ? `src="${immediateThumb}"` : ""}
           alt=""
         />
-        <div class="video-loading-indicator">
-          <span class="video-loading-spinner" aria-hidden="true"></span>
-          <span class="video-loading-text">Indlæser video...</span>
-        </div>
-      </div>
-      <iframe
-        id="edutasia-vimeo-player"
-        src="${embedUrl}"
-        width="100%"
-        height="100%"
-        frameborder="0"
-        allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media"
-        allowfullscreen
-        title="${modalTitle.replace(/"/g, "&quot;")}"
-      ></iframe>
+        <span class="video-thumbnail-scrim" aria-hidden="true"></span>
+        <span class="video-play-btn" id="video-play-btn" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+            <polygon points="6 3 20 12 6 21 6 3"></polygon>
+          </svg>
+        </span>
+        <span class="video-loading-indicator" id="video-loading-indicator" aria-hidden="true">
+          <span class="video-loading-spinner"></span>
+          <span class="video-loading-text">Starter video...</span>
+        </span>
+      </button>
     `;
 
+    const overlayBtn = document.getElementById("video-thumbnail-overlay");
     const thumbImgEl = document.getElementById("video-thumbnail-img");
-    const iframeEl = document.getElementById("edutasia-vimeo-player");
 
     // Hvis thumbnail ikke var klar synkront, hent og indsæt den straks når den lander
     if (!immediateThumb) {
@@ -313,28 +314,57 @@
       });
     }
 
-    // Fallback: Hvis Vimeo-afspilleren er klar eller autoplay blokeres af browseren,
-    // skjuler vi thumbnail-overlayet kort efter iframe load, så brugeren kan interagere med afspilleren.
-    if (iframeEl) {
+    // Start først afspilning og indlæs Vimeo iframe ved klik på thumbnail
+    let hasStarted = false;
+    const startPlayback = () => {
+      if (hasStarted) return;
+      hasStarted = true;
+
+      if (overlayBtn) {
+        overlayBtn.classList.remove("is-interactive");
+        overlayBtn.classList.add("is-loading");
+        overlayBtn.disabled = true;
+      }
+
+      const iframeEl = document.createElement("iframe");
+      iframeEl.id = "edutasia-vimeo-player";
+      iframeEl.src = embedUrl;
+      iframeEl.width = "100%";
+      iframeEl.height = "100%";
+      iframeEl.setAttribute("frameborder", "0");
+      iframeEl.setAttribute("allow", "autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media");
+      iframeEl.setAttribute("allowfullscreen", "");
+      iframeEl.title = modalTitle;
+
       iframeEl.addEventListener("load", () => {
         if (thumbnailTimeout) clearTimeout(thumbnailTimeout);
         thumbnailTimeout = setTimeout(() => {
           hideVideoThumbnailOverlay();
         }, 1200);
       });
-    }
 
-    // Sikkerheds-timeout så overlayet aldrig hænger fast
-    thumbnailTimeout = setTimeout(() => {
-      hideVideoThumbnailOverlay();
-    }, 4500);
+      videoWrapperEl.appendChild(iframeEl);
+
+      // Sikkerheds-timeout så overlayet aldrig hænger fast
+      thumbnailTimeout = setTimeout(() => {
+        hideVideoThumbnailOverlay();
+      }, 4500);
+    };
+
+    if (overlayBtn) {
+      overlayBtn.addEventListener("click", startPlayback);
+    }
 
     modalEl.classList.add("is-open");
     modalEl.setAttribute("aria-hidden", "false");
     document.body.style.overflow = "hidden"; // Forhindr baggrunds-scroll
 
-    // Sæt fokus på luk-knappen
-    modalCloseBtn.focus();
+    // Sæt fokus på play-knappen / thumbnailen så man også kan trykke Enter/Space med det samme
+    if (overlayBtn) {
+      overlayBtn.focus();
+    } else {
+      modalCloseBtn.focus();
+    }
 
     // Registrér at lågen er set
     markDoorAsWatched(doorData.day);

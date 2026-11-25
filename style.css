@@ -533,11 +533,16 @@ body {
   z-index: 1;
 }
 
-/* Video thumbnail-overlay mens Vimeo-afspilleren indlæser */
+/* Klikbar video-thumbnail før Vimeo-afspilleren startes */
 .video-thumbnail-overlay {
   position: absolute;
   inset: 0;
   z-index: 2;
+  width: 100%;
+  height: 100%;
+  border: none;
+  padding: 0;
+  font-family: inherit;
   background: radial-gradient(circle at 50% 45%, #1D3B4B 0%, #0D1B23 100%);
   display: flex;
   align-items: center;
@@ -545,13 +550,22 @@ body {
   overflow: hidden;
   opacity: 1;
   visibility: visible;
-  transition: opacity 0.4s ease, visibility 0.4s ease;
+  transition: opacity 0.35s ease, visibility 0.35s ease;
+}
+
+.video-thumbnail-overlay.is-interactive {
+  cursor: pointer;
+}
+
+.video-thumbnail-overlay.is-loading {
+  cursor: default;
   pointer-events: none;
 }
 
 .video-thumbnail-overlay.is-hidden {
   opacity: 0;
   visibility: hidden;
+  pointer-events: none;
 }
 
 .video-thumbnail-img {
@@ -561,20 +575,75 @@ body {
   height: 100%;
   object-fit: cover;
   opacity: 0;
-  transition: opacity 0.25s ease;
+  transition: opacity 0.25s ease, transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .video-thumbnail-img.is-loaded {
   opacity: 1;
 }
 
+.video-thumbnail-overlay.is-interactive:hover .video-thumbnail-img.is-loaded {
+  transform: scale(1.03);
+}
+
+.video-thumbnail-scrim {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(10, 22, 29, 0.18) 0%, rgba(10, 22, 29, 0.45) 100%);
+  transition: background var(--transition-normal);
+  z-index: 2;
+}
+
+.video-thumbnail-overlay.is-interactive:hover .video-thumbnail-scrim {
+  background: radial-gradient(circle at center, rgba(10, 22, 29, 0.08) 0%, rgba(10, 22, 29, 0.35) 100%);
+}
+
+.video-play-btn {
+  position: relative;
+  z-index: 3;
+  width: 74px;
+  height: 74px;
+  border-radius: 50%;
+  background: rgba(26, 52, 66, 0.88);
+  border: 2px solid var(--color-accent-gold);
+  color: var(--color-accent-gold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55), 0 0 20px rgba(229, 193, 88, 0.25);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: transform var(--transition-normal), background var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-normal);
+}
+
+.video-play-btn svg {
+  margin-left: 4px; /* Optisk centrering af play-trekanten */
+}
+
+.video-thumbnail-overlay.is-interactive:hover .video-play-btn,
+.video-thumbnail-overlay.is-interactive:focus-visible .video-play-btn {
+  transform: scale(1.1);
+  background: var(--color-accent-gold);
+  color: #142833;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.65), 0 0 28px rgba(229, 193, 88, 0.55);
+}
+
+.video-thumbnail-overlay:focus-visible {
+  outline: 2px solid var(--color-accent-gold);
+  outline-offset: -4px;
+}
+
+.video-thumbnail-overlay.is-loading .video-play-btn {
+  display: none;
+}
+
 .video-loading-indicator {
   position: relative;
   z-index: 3;
-  display: inline-flex;
+  display: none;
   align-items: center;
   gap: 10px;
-  background: rgba(15, 30, 38, 0.78);
+  background: rgba(15, 30, 38, 0.82);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.18);
@@ -584,6 +653,10 @@ body {
   font-size: 0.9rem;
   font-weight: 600;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.video-thumbnail-overlay.is-loading .video-loading-indicator {
+  display: inline-flex;
 }
 
 .video-loading-spinner {
